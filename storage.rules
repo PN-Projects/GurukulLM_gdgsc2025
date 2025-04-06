@@ -1,0 +1,34 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow authenticated users to read and write their own files
+    match /users/{userId}/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Allow authenticated users to read and write assignment files
+    match /assignments/{assignmentId}/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+    }
+    
+    // Allow authenticated users to read and write assignment submission files
+    match /assignment_submissions/{submissionId}/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && 
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'student';
+      allow update, delete: if request.auth != null && 
+        (firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'teacher' ||
+         firestore.get(/databases/(default)/documents/assignment_submissions/$(submissionId)).data.studentId == request.auth.uid);
+    }
+    
+    // Allow authenticated users to read and write course content files
+    match /courses/{courseId}/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && 
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+    }
+  }
+} 
